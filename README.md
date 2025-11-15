@@ -755,7 +755,7 @@ Description:
 
 Notes:
 - This option only applies when `CodeBlockNode` is used (i.e., `renderCodeBlocksAsPre` is `false`).
-- While loading, the component shows a lightweight placeholder to keep layout stable. Monaco editor initialization is deferred until loading becomes `false`.
+- While loading, the component shows a lightweight placeholder to keep the layout stable. Monaco editor initialization is deferred until loading becomes `false`.
 
 Example (Vue usage):
 ```vue
@@ -1142,7 +1142,7 @@ app.use(VueRendererMarkdown, {
 ```
 
 Notes:
-- The resolver returns raw HTML/SVG string. Returning `undefined`/empty value defers to the built-in mapping.
+- The resolver returns a raw HTML/SVG string. Returning `undefined`/empty value defers to the built-in mapping.
 - Works across all code blocks without changing component usage.
 - Alignment: icons render inside a fixed-size slot; both `<svg>` and `<img>` align consistently, no inline styles needed.
 - For local files, import with `?raw` and ensure the file is a pure SVG (not an HTML page). Download the raw SVG instead of GitHub’s HTML preview.
@@ -1468,7 +1468,7 @@ See the [Monaco Editor Integration](#monaco-editor-integration) section for more
    ```
    ````
 
-3. Check browser console for Mermaid errors. The library shows the source text if Mermaid rendering fails.
+3. Check the browser console for Mermaid errors. The library shows the source text if Mermaid rendering fails.
 
 ### Syntax highlighting not working with MarkdownCodeBlockNode
 
@@ -1505,7 +1505,7 @@ pnpm add stream-markdown shiki
    }
    ```
 
-### Tailwind CSS styles conflicting
+### Tailwind CSS styles are conflicting
 
 **Symptom:** Component styles are overridden by Tailwind utility classes or vice versa.
 
@@ -1582,7 +1582,7 @@ See the [Tailwind section](#tailwind-eg-shadcn--fix-style-ordering-issues) for m
 
 1. **Use streaming rendering** to update content incrementally instead of replacing the entire content at once.
 
-2. **Enable pre-rendering for code blocks** if you don't need Monaco editor:
+2. **Enable pre-rendering for code blocks** if you don't need the Monaco editor:
    ```vue
    <MarkdownRender :content="markdown" :render-code-blocks-as-pre="true" />
    ```

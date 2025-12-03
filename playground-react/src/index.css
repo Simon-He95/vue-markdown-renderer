@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --tw-gradient-from-position: 0%;
+  --tw-gradient-to-position: 100%;
+}
+
+html {
+  color: #334155;
+}
+
+html.dark {
+  background: #121212;
+  color: #e0e0e0;
+}
+
+.app-container {
+  transition: background-color 0.3s ease;
+  overflow: hidden;
+}
+
+.chatbot-container {
+  transition: all 0.3s ease;
+  overscroll-behavior: contain;
+  height: calc(var(--app-viewport-vh, 1vh) * 100 - 2rem);
+  max-height: calc(var(--app-viewport-vh, 1vh) * 100 - 2rem);
+}
+
+.github-star-btn:active {
+  transform: scale(0.95);
+}
+
+.chatbot-messages {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.chatbot-messages > .markdown-renderer {
+  min-height: 100%;
+}
+
+.chatbot-messages > .markdown-renderer.disable-min-height {
+  min-height: unset !important;
+}
+
+.chatbot-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chatbot-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.dark .chatbot-messages::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark .chatbot-messages::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.settings-toggle {
+  backdrop-filter: blur(8px);
+}
+
+.settings-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-selector select:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.theme-selector select option {
+  padding: 8px 12px;
+  background-color: white;
+  color: #374151;
+}
+
+.dark .theme-selector select option {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.settings-panel {
+  transform-origin: top right;
+}
+
+.markdown-renderer .code-block-container.is-rendering {
+  position: relative;
+  animation: renderingGlow 2s ease-in-out infinite;
+}
+
+@keyframes renderingGlow {
+  0% {
+    box-shadow:
+      0 0 10px rgba(59, 130, 246, 0.4),
+      0 0 20px rgba(59, 130, 246, 0.2);
+  }
+  25% {
+    box-shadow:
+      0 0 15px rgba(139, 92, 246, 0.5),
+      0 0 30px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(236, 72, 153, 0.5),
+      0 0 40px rgba(236, 72, 153, 0.3);
+  }
+  75% {
+    box-shadow:
+      0 0 15px rgba(16, 185, 129, 0.5),
+      0 0 30px rgba(16, 185, 129, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 10px rgba(59, 130, 246, 0.4),
+      0 0 20px rgba(59, 130, 246, 0.2);
+  }
+}
+
+.markdown-renderer .is-rendering {
+  position: relative;
+  animation: renderingGlow 2s ease-in-out infinite;
+}

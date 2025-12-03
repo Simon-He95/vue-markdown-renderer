@@ -1,4 +1,5 @@
 packages:
   - playground
   - playground-nuxt
+  - playground-react
   - packages/*

@@ -1,0 +1,27 @@
+{
+  "name": "markstream-react-playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@iconify/react": "^4.1.1",
+    "markstream-react": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.4.49",
+    "@vitejs/plugin-react-swc": "^3.7.1",
+    "tailwindcss": "^3.4.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  }
+}

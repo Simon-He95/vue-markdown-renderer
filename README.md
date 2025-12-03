@@ -12,6 +12,8 @@
 > 📖 All detailed documentation, API, examples, and advanced usage have been migrated to the VitePress documentation site:
 > https://markstream-vue-docs.simonhe.me/guide/
 
+> ✅ Looking for a React renderer? A first-pass port now lives under `packages/markstream-react`. See `packages/markstream-react/README.md` for usage instructions while its documentation is fleshed out.
+
 ## 🚀 Playground & Demo
 
 - Playground (interactive demo): https://markstream-vue.simonhe.me/

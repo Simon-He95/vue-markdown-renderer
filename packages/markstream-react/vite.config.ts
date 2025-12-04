@@ -8,6 +8,19 @@ export default defineConfig(({ mode }) => {
   return {
     base,
     plugins: [react()],
+    css: {
+      postcss: './postcss.config.cjs',
+    },
+    worker: {
+      format: 'es',
+      rollupOptions: {
+        output: {
+          entryFileNames: 'workers/[name].js',
+          chunkFileNames: 'workers/[name].js',
+          assetFileNames: 'workers/[name][extname]',
+        },
+      },
+    },
     build: {
       target: 'es2019',
       cssTarget: 'chrome80',

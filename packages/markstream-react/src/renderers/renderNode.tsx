@@ -4,6 +4,12 @@ import clsx from 'clsx'
 import type { ParsedNode } from 'stream-markdown-parser'
 import type { RenderContext } from '../types'
 import { getCustomNodeComponents } from '../customComponents'
+import { MathInlineNode } from '../components/Math/MathInlineNode'
+import { MathBlockNode } from '../components/Math/MathBlockNode'
+import { CodeBlockNode as MonacoCodeBlockNode } from '../components/CodeBlockNode/CodeBlockNode'
+import { PreCodeNode } from '../components/CodeBlockNode/PreCodeNode'
+import { MermaidBlockNode } from '../components/MermaidBlockNode/MermaidBlockNode'
+import { ImageNode } from '../components/ImageNode/ImageNode'
 
 const BLOCK_LEVEL_TYPES = new Set([
   'image',
@@ -20,12 +26,58 @@ const BLOCK_LEVEL_TYPES = new Set([
   'admonition',
   'thematic_break',
   'math_block',
+  'thinking',
 ])
+
+function tokenAttrsToProps(attrs?: [string, string | null][]) {
+  if (!Array.isArray(attrs) || attrs.length === 0)
+    return undefined
+  return attrs.reduce<Record<string, string | true>>((acc, [name, value]) => {
+    if (!name)
+      return acc
+    const attrName = name === 'for'
+      ? 'htmlFor'
+      : name === 'class'
+        ? 'className'
+        : name
+    acc[attrName] = value ?? true
+    return acc
+  }, {})
+}
 
 function renderChildren(children: ParsedNode[] | undefined, ctx: RenderContext, prefix: string) {
   if (!Array.isArray(children) || children.length === 0)
     return null
-  return children.map((child, idx) => renderNode(child, `${prefix}-${idx}`, ctx))
+
+  const result: ReactNode[] = []
+  for (let idx = 0; idx < children.length; idx++) {
+    const child = children[idx] as ParsedNode & { attrs?: [string, string | null][] }
+    if (!child)
+      continue
+    if (child.type === 'label_open') {
+      const labelChildren: ParsedNode[] = []
+      idx++
+      while (idx < children.length) {
+        const segment = children[idx]
+        if (segment?.type === 'label_close')
+          break
+        if (segment)
+          labelChildren.push(segment)
+        idx++
+      }
+      const key = `${prefix}-label-${idx}`
+      result.push(
+        <label key={key} {...tokenAttrsToProps(child.attrs)}>
+          {renderChildren(labelChildren, ctx, `${key}-child`)}
+        </label>,
+      )
+      continue
+    }
+    if (child.type === 'label_close')
+      continue
+    result.push(renderNode(child, `${prefix}-${idx}`, ctx))
+  }
+  return result
 }
 
 function renderInline(children: ParsedNode[] | undefined, ctx: RenderContext, prefix: string) {
@@ -47,51 +99,107 @@ function renderHtmlBlock(node: any, key: React.Key): ReactNode {
 }
 
 function renderCodeBlock(node: any, key: React.Key, ctx: RenderContext): ReactNode {
-  if (ctx.renderCodeBlocksAsPre) {
-    return (
-      <pre key={key} className="code-block-node">
-        <code className={clsx('language-' + (node.language || ''))}>
-          {node.code}
-        </code>
-      </pre>
-    )
-  }
   const language = String(node.language || '').toLowerCase()
   if (language === 'mermaid') {
-    return (
-      <pre key={key} className="code-block-node mermaid-fallback">
-        {node.code}
-      </pre>
-    )
+    const customMermaid = getCustomNodeComponents(ctx.customId).mermaid
+    if (customMermaid)
+      return React.createElement(customMermaid as any, { key, node, isDark: ctx.isDark })
+    if (!ctx.renderCodeBlocksAsPre) {
+      return (
+        <MermaidBlockNode
+          key={key}
+          node={node as any}
+          isDark={ctx.isDark}
+        />
+      )
+    }
+  }
+
+  if (ctx.renderCodeBlocksAsPre || language === 'mermaid') {
+    return <PreCodeNode key={key} node={node} />
   }
 
   return (
-    <pre key={key} className="code-block-node">
-      <code className={clsx('language-' + (node.language || ''))}>
-        {node.code}
-      </code>
-    </pre>
+    <MonacoCodeBlockNode
+      key={key}
+      node={node}
+      stream={ctx.codeBlockStream}
+      darkTheme={ctx.codeBlockThemes?.darkTheme}
+      lightTheme={ctx.codeBlockThemes?.lightTheme}
+      monacoOptions={ctx.codeBlockThemes?.monacoOptions}
+      themes={ctx.codeBlockThemes?.themes}
+      minWidth={ctx.codeBlockThemes?.minWidth}
+      maxWidth={ctx.codeBlockThemes?.maxWidth}
+      isDark={ctx.isDark}
+      onCopy={ctx.events.onCopy}
+      {...(ctx.codeBlockProps || {})}
+    />
   )
 }
 
+
 function renderTable(node: any, key: React.Key, ctx: RenderContext) {
+  const headerCells = Array.isArray(node?.header?.cells) ? node.header.cells : []
+  const columnCount = headerCells.length || Math.max(1, node?.rows?.[0]?.cells?.length || 0) || 1
+  const baseWidth = Math.floor(100 / columnCount)
+  const colWidths = Array.from({ length: columnCount }, (_, idx) => {
+    if (idx === columnCount - 1)
+      return `${100 - baseWidth * (columnCount - 1)}%`
+    return `${baseWidth}%`
+  })
+  const isLoading = Boolean(node?.loading)
+  const bodyRows = Array.isArray(node?.rows) ? node.rows : []
+
+  const getAlignClass = (align?: string) => {
+    if (align === 'right')
+      return 'table-node__cell--right'
+    if (align === 'center')
+      return 'table-node__cell--center'
+    return 'table-node__cell--left'
+  }
+
   return (
-    <div key={key} className="table-node overflow-x-auto">
-      <table>
-        <thead>
+    <div key={key} className="table-node-wrapper">
+      <table
+        className={clsx(
+          'table-node w-full my-8 text-sm table-fixed',
+          isLoading && 'table-node--loading',
+        )}
+        aria-busy={isLoading}
+      >
+        <colgroup>
+          {colWidths.map((width, idx) => (
+            <col key={`col-${idx}`} style={{ width }} />
+          ))}
+        </colgroup>
+        <thead className="table-node__head">
           <tr>
-            {node.header?.cells?.map((cell: any, idx: number) => (
-              <th key={`th-${idx}`} className={clsx({ [`align-${cell.align}`]: cell.align })}>
+            {headerCells.map((cell: any, idx: number) => (
+              <th
+                key={`header-${idx}`}
+                className={clsx('table-node__cell table-node__cell--header', getAlignClass(cell.align))}
+                dir="auto"
+              >
                 {renderInline(cell.children, ctx, `${key}-th-${idx}`)}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {node.rows?.map((row: any, rowIdx: number) => (
-            <tr key={`row-${rowIdx}`}>
+          {bodyRows.map((row: any, rowIdx: number) => (
+            <tr
+              key={`row-${rowIdx}`}
+              className={clsx(
+                'table-node__row',
+                rowIdx < bodyRows.length - 1 && 'table-node__row--bordered',
+              )}
+            >
               {row.cells?.map((cell: any, cellIdx: number) => (
-                <td key={`cell-${cellIdx}`} className={clsx({ [`align-${cell.align}`]: cell.align })}>
+                <td
+                  key={`cell-${rowIdx}-${cellIdx}`}
+                  className={clsx('table-node__cell', getAlignClass(cell.align))}
+                  dir="auto"
+                >
                   {renderInline(cell.children, ctx, `${key}-row-${rowIdx}-${cellIdx}`)}
                 </td>
               ))}
@@ -99,6 +207,12 @@ function renderTable(node: any, key: React.Key, ctx: RenderContext) {
           ))}
         </tbody>
       </table>
+      {isLoading && (
+        <div className="table-node__loading" role="status" aria-live="polite">
+          <span className="table-node__spinner" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -132,23 +246,6 @@ function renderLink(node: any, key: React.Key, ctx: RenderContext) {
   )
 }
 
-function renderImage(node: any, key: React.Key) {
-  return (
-    <figure key={key} className="image-node my-6 text-center">
-      <img
-        src={node.src}
-        alt={node.alt ?? ''}
-        title={node.title ?? undefined}
-        className="inline-block max-w-full rounded-lg"
-        loading="lazy"
-      />
-      {node.alt && (
-        <figcaption className="text-sm text-gray-500 mt-2">{node.alt}</figcaption>
-      )}
-    </figure>
-  )
-}
-
 function renderFootnote(node: any, key: React.Key, ctx: RenderContext) {
   return (
     <section key={key} className="footnote-node border-l pl-4 my-6 text-sm text-gray-600">
@@ -164,13 +261,6 @@ function renderAdmonition(node: any, key: React.Key, ctx: RenderContext) {
       {renderChildren(node.children, ctx, `${key}-admonition`)}
     </div>
   )
-}
-
-function renderMath(node: any, key: React.Key, inline: boolean) {
-  const content = node.raw ?? node.content ?? ''
-  if (inline)
-    return <span key={key} className="math-inline-node">{content}</span>
-  return <div key={key} className="math-block-node my-4">{content}</div>
 }
 
 export function renderNode(node: ParsedNode, key: React.Key, ctx: RenderContext): ReactNode {
@@ -190,6 +280,15 @@ export function renderNode(node: ParsedNode, key: React.Key, ctx: RenderContext)
           )}
         >
           {node.content}
+        </span>
+      )
+    case 'text_special':
+      return (
+        <span
+          key={key}
+          className="text-node whitespace-pre-wrap break-words"
+        >
+          {(node as any).content ?? ''}
         </span>
       )
     case 'paragraph': {
@@ -276,7 +375,12 @@ export function renderNode(node: ParsedNode, key: React.Key, ctx: RenderContext)
     case 'link':
       return renderLink(node, key, ctx)
     case 'image':
-      return renderImage(node, key)
+      return (
+        <ImageNode
+          key={key}
+          node={node as any}
+        />
+      )
     case 'inline_code':
       return (
         <code key={key} className="inline-code px-1.5 py-0.5 rounded bg-gray-100 text-sm">
@@ -315,9 +419,9 @@ export function renderNode(node: ParsedNode, key: React.Key, ctx: RenderContext)
     case 'thematic_break':
       return <hr key={key} className="my-8 border-t border-muted" />
     case 'math_inline':
-      return renderMath(node, key, true)
+      return <MathInlineNode key={key} node={node as any} />
     case 'math_block':
-      return renderMath(node, key, false)
+      return <MathBlockNode key={key} node={node as any} />
     case 'reference':
       return (
         <span key={key} className="reference-node text-sm text-gray-500">
@@ -328,6 +432,9 @@ export function renderNode(node: ParsedNode, key: React.Key, ctx: RenderContext)
       return renderHtmlBlock(node, key)
     case 'html_inline':
       return renderHtmlBlock(node, key)
+    case 'label_open':
+    case 'label_close':
+      return null
     default:
       return (
         <div key={key} className="unknown-node text-sm text-gray-500 italic">

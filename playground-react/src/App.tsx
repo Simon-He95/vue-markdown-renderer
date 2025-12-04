@@ -1,7 +1,70 @@
 import { Icon } from '@iconify/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { NodeRenderer } from 'markstream-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { NodeRenderer, setCustomComponents, setKaTeXWorker, setMermaidWorker } from 'markstream-react'
+import KatexWorker from 'markstream-react/workers/katexRenderer.worker?worker&inline'
+import MermaidWorker from 'markstream-react/workers/mermaidParser.worker?worker&inline'
+import type { ParseOptions } from 'stream-markdown-parser'
+import { ThinkingNode } from './components/ThinkingNode'
 import { streamContent } from './markdown'
+
+setKaTeXWorker(new KatexWorker())
+setMermaidWorker(new MermaidWorker())
+const PLAYGROUND_CUSTOM_ID = 'playground-demo'
+setCustomComponents(PLAYGROUND_CUSTOM_ID, {
+  thinking: ThinkingNode,
+})
+
+const MemoizedNodeRenderer = memo(NodeRenderer)
+
+const THINKING_PARSE_OPTIONS: ParseOptions = {
+  preTransformTokens: (tokens: any[]) => tokens.flatMap((token: any) => {
+    if (token?.type === 'html_block' && typeof token.content === 'string' && token.content.trim().startsWith('<thinking')) {
+      const transformed = {
+        type: 'thinking',
+        loading: token.loading,
+        attrs: extractThinkingAttributes(token.content),
+        content: extractThinkingContent(token.content),
+      }
+      return [transformed]
+    }
+    if (token?.type !== 'inline' || !Array.isArray(token.children))
+      return token
+    let touched = false
+    const nextChildren = token.children.map((child: any) => {
+      if (child?.type === 'thinking') {
+        touched = true
+        return child
+      }
+      return child
+    })
+    return touched ? { ...token, children: nextChildren } : token
+  }),
+}
+
+function extractThinkingAttributes(source: string) {
+  const match = source.match(/<thinking([^>]*)>/)
+  if (!match)
+    return []
+  const attrString = match[1] || ''
+  const attrRegex = /([^\s=]+)(?:="([^"]*)")?/g
+  const attrs: Array<{ name: string, value: string | boolean }> = []
+  let attrMatch: RegExpExecArray | null
+  while ((attrMatch = attrRegex.exec(attrString)) !== null) {
+    attrs.push({
+      name: attrMatch[1],
+      value: attrMatch[2] ?? true,
+    })
+  }
+  return attrs
+}
+
+function extractThinkingContent(source: string) {
+  return source
+    .replace(/<thinking[^>]*>/, '')
+    // eslint-disable-next-line regexp/no-super-linear-backtracking
+    .replace(/<\/*t*h*i*n*k*i*n*g*>*\n*$/, '')
+    .trim()
+}
 
 const THEMES = [
   'andromeeda',
@@ -122,8 +185,10 @@ export default function App() {
   })
 
   const normalizedChunkSize = useMemo(() => clampChunk(streamChunkSize), [streamChunkSize])
+  const themeOptions = useMemo(() => Array.from(THEMES), [])
   const messagesRef = useRef<HTMLDivElement | null>(null)
   const frameRef = useRef<number | null>(null)
+  const settingsRootRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (typeof document === 'undefined')
@@ -227,6 +292,25 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (!showSettings)
+      return
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const root = settingsRootRef.current
+      if (!root)
+        return
+      if (root.contains(event.target as Node))
+        return
+      setShowSettings(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+    }
+  }, [showSettings])
+
+  useEffect(() => {
     if (typeof window === 'undefined')
       return
     let timer: number | null = null
@@ -263,10 +347,10 @@ export default function App() {
 
   return (
     <div className="flex items-center justify-center p-4 app-container h-full bg-gray-50 dark:bg-gray-900">
-      <div className="fixed top-4 right-4 z-10">
+      <div ref={settingsRootRef} className="fixed top-4 right-4 z-10 pointer-events-none flex flex-col items-end gap-2">
         <button
           type="button"
-          className={`settings-toggle w-10 h-10 rounded-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 shadow-lg dark:shadow-gray-900/20 transition-all duration-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${showSettings ? 'ring-2 ring-blue-500/50' : ''}`}
+          className={`pointer-events-auto settings-toggle w-10 h-10 rounded-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 shadow-lg dark:shadow-gray-900/20 transition-all duration-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${showSettings ? 'ring-2 ring-blue-500/50' : ''}`}
           onClick={() => setShowSettings(value => !value)}
         >
           <Icon
@@ -277,7 +361,7 @@ export default function App() {
 
         {showSettings && (
           <div
-            className="settings-panel absolute top-12 right-0 mt-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-xl dark:shadow-gray-900/30 p-4 space-y-4 min-w-[220px] origin-top-right"
+            className="pointer-events-auto settings-panel absolute top-12 right-0 mt-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-xl dark:shadow-gray-900/30 p-4 space-y-4 min-w-[220px] origin-top-right transition-all duration-200 ease-out"
           >
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
@@ -416,13 +500,18 @@ export default function App() {
 
         <main ref={messagesRef} className="chatbot-messages flex-1 overflow-y-auto mr-[1px] mb-4 flex flex-col-reverse">
           <div className="p-6">
-            <NodeRenderer
+            <MemoizedNodeRenderer
               content={content}
+              parseOptions={THINKING_PARSE_OPTIONS}
               codeBlockDarkTheme={selectedTheme}
               codeBlockLightTheme={selectedTheme}
-              themes={Array.from(THEMES)}
+              themes={themeOptions}
               isDark={isDark}
-              customId="playground-demo"
+              customId={PLAYGROUND_CUSTOM_ID}
+              deferNodesUntilVisible={false}
+              maxLiveNodes={2000}
+              liveNodeBuffer={200}
+              viewportPriority={false}
             />
           </div>
         </main>
